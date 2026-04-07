@@ -69,10 +69,23 @@ r_axioma:                                { ; }
             |   axioma                   { ; }
             ;
 
-sentencia:    IDENTIF '=' expresion      { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ; 
-                                           $$.code = gen_code (temp) ; }
-            | '@' expresion              { sprintf (temp, "(print %s)", $2.code) ;  
-                                           $$.code = gen_code (temp) ; }
+sentencia:    INTEGER listvariable          { $$ = $2 ; }
+            | IDENTIF '=' expresion        { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
+                                             $$.code = gen_code (temp) ; }
+            | '@' expresion                { sprintf (temp, "(print %s)", $2.code) ;
+                                             $$.code = gen_code (temp) ; }
+            ;
+
+listvariable:
+              variable                     { $$ = $1 ; }
+            | listvariable ',' variable     { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
+                                             $$.code = gen_code (temp) ; }
+            ;
+
+variable:     IDENTIF                      { sprintf (temp, "(setq %s 0)", $1.code) ;
+                                             $$.code = gen_code (temp) ; }
+            | IDENTIF '=' NUMBER           { sprintf (temp, "(setq %s %d)", $1.code, $3.value) ;
+                                             $$.code = gen_code (temp) ; }
             ;
           
 expresion:      termino                  { $$ = $1 ; }
