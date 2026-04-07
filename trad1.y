@@ -59,36 +59,64 @@ typedef struct s_attr {
 %left '*' '/'                 // orden de precedencia intermedio
 %left UNARY_SIGN              // mayor orden de precedencia
 
+
 %%                            // Seccion 3 Gramatica - Semantico
 
-axioma:       sentencia ';'              { printf ("%s\n", $1.code) ; }
-                r_axioma                 { ; }
+/*punto de entrada principal */
+programa:       declaraciones_globales funcion_main { printf ("%s\n\n%s\n\n(main)\n", $1.code, $2.code) ; }
             ;
 
-r_axioma:                                { ; }
-            |   axioma                   { ; }
+/* jerarquía de declaraciones globales*/
+declaraciones_globales: 
+                            declaracion_global declaraciones_globales   { sprintf (temp, "%s\n%s", $1.code, $2.code) ;
+                                                                        $$.code = gen_code (temp) ; }
+                                                    
+                            |   /* vacio */                             { $$.code = gen_code ("") ; }
+                        ;
+
+declaracion_global:         
+                            INTEGER lista_variables ';'     { $$ = $2 ; }
+                        ;
+
+lista_variables:            
+                            variable                        { $$ = $1 ; }
+
+                        |   lista_variables ',' variable    { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
+                                                            $$.code = gen_code (temp) ; }
+                                                    
+                        ;
+
+variable:       
+                IDENTIF                  { sprintf (temp, "(setq %s 0)", $1.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   IDENTIF '=' NUMBER       { sprintf (temp, "(setq %s %d)", $1.code, $3.value) ;
+                                           $$.code = gen_code (temp) ; }
             ;
 
-sentencia:    INTEGER listvariable          { $$ = $2 ; }
-            | IDENTIF '=' expresion        { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
-                                             $$.code = gen_code (temp) ; }
-            | '@' expresion                { sprintf (temp, "(print %s)", $2.code) ;
-                                             $$.code = gen_code (temp) ; }
+/* jerarquía de la fnción main*/
+funcion_main:   
+                MAIN '(' ')' '{' lista_sentencias '}'   { sprintf (temp, "(defun main ()\n%s\n)", $5.code) ;
+                                                        $$.code = gen_code (temp) ; }         
+                                         
             ;
 
-listvariable:
-              variable                     { $$ = $1 ; }
-            | listvariable ',' variable     { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
-                                             $$.code = gen_code (temp) ; }
+lista_sentencias:       
+                sentencia ';' lista_sentencias  { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
+                                                $$.code = gen_code (temp) ; }      
+                                         
+                |   /* vacio */                 { $$.code = gen_code ("") ; }
             ;
 
-variable:     IDENTIF                      { sprintf (temp, "(setq %s 0)", $1.code) ;
-                                             $$.code = gen_code (temp) ; }
-            | IDENTIF '=' NUMBER           { sprintf (temp, "(setq %s %d)", $1.code, $3.value) ;
-                                             $$.code = gen_code (temp) ; }
+// sentencias (solo válidas dentro de funciones)
+sentencia:      
+                IDENTIF '=' expresion       { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
+                                            $$.code = gen_code (temp) ; }
+                |   '@' expresion           { sprintf (temp, "(print %s)", $2.code) ;
+                                            $$.code = gen_code (temp) ; }
             ;
-          
-expresion:      termino                  { $$ = $1 ; }
+
+expresion:      
+                termino                  { $$ = $1 ; }
             |   expresion '+' expresion  { sprintf (temp, "(+ %s %s)", $1.code, $3.code) ;
                                            $$.code = gen_code (temp) ; }
             |   expresion '-' expresion  { sprintf (temp, "(- %s %s)", $1.code, $3.code) ;
@@ -99,19 +127,22 @@ expresion:      termino                  { $$ = $1 ; }
                                            $$.code = gen_code (temp) ; }
             ;
 
-termino:        operando                           { $$ = $1 ; }                          
-            |   '+' operando %prec UNARY_SIGN      { $$ = $1 ; }
-            |   '-' operando %prec UNARY_SIGN      { sprintf (temp, "(- %s)", $2.code) ;
-                                                     $$.code = gen_code (temp) ; }    
+termino:        
+                operando                 { $$ = $1 ; }                          
+            |   '+' operando %prec UNARY_SIGN      
+                                         { $$ = $2 ; } /* el operando es el segundo elemento*/
+            |   '-' operando %prec UNARY_SIGN      
+                                         { sprintf (temp, "(- %s)", $2.code) ;
+                                           $$.code = gen_code (temp) ; }    
             ;
 
-operando:       IDENTIF                  { sprintf (temp, "%s", $1.code) ;
+operando:       
+                IDENTIF                  { sprintf (temp, "%s", $1.code) ;
                                            $$.code = gen_code (temp) ; }
             |   NUMBER                   { sprintf (temp, "%d", $1.value) ;
                                            $$.code = gen_code (temp) ; }
             |   '(' expresion ')'        { $$ = $2 ; }
             ;
-
 
 %%                            // SECCION 4    Codigo en C
 
