@@ -49,8 +49,9 @@ typedef struct s_attr {
 %token IDENTIF       // Identificador=variable
 %token INTEGER       // identifica el tipo entero
 %token STRING
-%token MAIN          // identifica el comienzo del proc. main
+%token MAIN          // identifica el comienzo del proc main
 %token WHILE         // identifica el bucle main
+%token PUTS          // identifica la función de imprimir strings
 
 
 
@@ -109,10 +110,12 @@ lista_sentencias:
 
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
-                IDENTIF '=' expresion       { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
-                                            $$.code = gen_code (temp) ; }
-                |   '@' expresion           { sprintf (temp, "(print %s)", $2.code) ;
-                                            $$.code = gen_code (temp) ; }
+                IDENTIF '=' expresion    { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   '@' expresion            { sprintf (temp, "(print %s)", $2.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   PUTS '(' STRING ')'      { sprintf (temp, "(print \"%s\")", $3.code) ;
+                                           $$.code = gen_code (temp) ; }
             ;
 
 expresion:      
@@ -204,11 +207,12 @@ typedef struct s_keyword { // para las palabras reservadas de C
 t_keyword keywords [] = { // define las palabras reservadas y los
     "main",        MAIN,           // y los token asociados
     "int",         INTEGER,
+    "puts",        PUTS,
     NULL,          0               // para marcar el fin de la tabla
 } ;
 
 t_keyword *search_keyword (char *symbol_name)
-{                                  // Busca n_s en la tabla de pal. res.
+{                                  // Busca n_s en la tabla de pal.res.
                                    // y devuelve puntero a registro (simbolo)
     int i ;
     t_keyword *sim ;
