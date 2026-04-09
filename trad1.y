@@ -105,10 +105,11 @@ funcion_main:
             ;
 
 lista_sentencias:       
-                sentencia ';' lista_sentencias  { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
-                                                $$.code = gen_code (temp) ; }      
-                                         
-                |   /* vacio */                 { $$.code = gen_code ("") ; }
+                sentencia ';' lista_sentencias                                          { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
+                                                                                            $$.code = gen_code (temp) ; }
+            |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias       { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
+                                                                                            $$.code = gen_code (temp) ; }
+            |   /* vacio */                                                             { $$.code = gen_code ("") ; }
             ;
 
 // sentencias (solo válidas dentro de funciones)
@@ -243,6 +244,7 @@ t_keyword keywords [] = { // define las palabras reservadas y los
     "int",         INTEGER,
     "puts",        PUTS,
     "printf",      PRINTF,
+    "while",       WHILE,
     "&&",          AND,
     "||",          OR,
     "==",          EQ,
