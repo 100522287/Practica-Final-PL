@@ -81,12 +81,11 @@ declaracion_global:
                         ;
 
 lista_variables:            
-                            variable                        { $$ = $1 ; }
-
-                        |   lista_variables ',' variable    { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
-                                                            $$.code = gen_code (temp) ; }
-                                                    
-                        ;
+                variable                        { $$ = $1 ; }
+            |
+                variable ',' lista_variables    { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
+                                                  $$.code = gen_code (temp) ; }
+            ;
 
 variable:       
                 IDENTIF                  { sprintf (temp, "(setq %s 0)", $1.code) ;
@@ -120,8 +119,9 @@ sentencia:
 
 lista_impresion:
                 elemento_impresion                          { $$ = $1 ; }
-            |   lista_impresion ',' elemento_impresion      { sprintf (temp, "%s\n\t%s", $1.code, $3.code) ;
-                                                                $$.code = gen_code (temp) ; }
+            |
+                elemento_impresion ',' lista_impresion      { sprintf (temp, "%s\n\t%s", $1.code, $3.code) ;
+                                                              $$.code = gen_code (temp) ; }
             ;
 
 elemento_impresion:
