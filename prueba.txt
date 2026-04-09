@@ -1,4 +1,20 @@
-int a = 10, b = 2;
+int x = 10, y, z = 5;
+int a = 2;
+
 main () {
-    printf("Formato ignorado", "El valor de a es: ", a, " y el doble de b es: ", b * 2);
+    y = x + z * a;
+    
+    puts("--- INICIO DE LA PRUEBA GLOBAL ---");
+    
+    printf("Formato", "El valor calculado de y es: ", y);
+    
+    printf("F", "Evaluacion logica (y > 15 AND z == 5): ", y > 15 && z == 5);
+    
+    printf("F", "Modulo (x % 3): ", x % 3);
+    
+    printf("F", "Negacion de a: ", !a);
+    
+    printf("F", "Compleja ((x + 2) * 3 >= 30 OR z != 5): ", (x + 2) * 3 >= 30 || z != 5);
+    
+    puts("--- FIN DE LA PRUEBA ---");
 }
