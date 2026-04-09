@@ -1,4 +1,4 @@
-int a = 10;
+int a = 10, b = 2;
 main () {
-    puts("Hola mundo");
+    printf("Formato ignorado", "El valor de a es: ", a, " y el doble de b es: ", b * 2);
 }

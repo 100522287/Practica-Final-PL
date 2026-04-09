@@ -52,6 +52,7 @@ typedef struct s_attr {
 %token MAIN          // identifica el comienzo del proc main
 %token WHILE         // identifica el bucle main
 %token PUTS          // identifica la función de imprimir strings
+%token PRINTF        // identifica 
 
 
 
@@ -110,11 +111,23 @@ lista_sentencias:
 
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
-                IDENTIF '=' expresion    { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
+                IDENTIF '=' expresion                           { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
+                                                                    $$.code = gen_code (temp) ; }
+            |   PUTS '(' STRING ')'                             { sprintf (temp, "(print \"%s\")", $3.code) ;
+                                                                    $$.code = gen_code (temp) ; }
+            |   PRINTF '(' STRING ',' lista_impresion ')'       { $$ = $5 ; } // Ignoramos el string de formato ($3)
+            ;
+
+lista_impresion:
+                elemento_impresion                          { $$ = $1 ; }
+            |   lista_impresion ',' elemento_impresion      { sprintf (temp, "%s\n\t%s", $1.code, $3.code) ;
+                                                                $$.code = gen_code (temp) ; }
+            ;
+
+elemento_impresion:
+                expresion                { sprintf (temp, "(princ %s)", $1.code) ;
                                            $$.code = gen_code (temp) ; }
-            |   '@' expresion            { sprintf (temp, "(print %s)", $2.code) ;
-                                           $$.code = gen_code (temp) ; }
-            |   PUTS '(' STRING ')'      { sprintf (temp, "(print \"%s\")", $3.code) ;
+            |   STRING                   { sprintf (temp, "(princ \"%s\")", $1.code) ;
                                            $$.code = gen_code (temp) ; }
             ;
 
@@ -208,6 +221,7 @@ t_keyword keywords [] = { // define las palabras reservadas y los
     "main",        MAIN,           // y los token asociados
     "int",         INTEGER,
     "puts",        PUTS,
+    "printf",      PRINTF,
     NULL,          0               // para marcar el fin de la tabla
 } ;
 
