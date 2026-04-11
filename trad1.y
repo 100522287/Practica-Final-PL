@@ -20,6 +20,8 @@ extern int is_local_scope;
 void add_local_var(char *name);
 int is_local_var(char *name);
 char* resolve_var(char *name);
+extern char current_func_name[256];
+void clear_local_vars();
 
 char temp [2048] ;
 
@@ -81,7 +83,11 @@ typedef struct s_attr {
 %%                            // Seccion 3 Gramatica - Semantico
 
 /*punto de entrada principal */
-programa:       declaraciones_globales funcion_main { printf ("%s\n\n%s\n\n(main)\n", $1.code, $2.code) ; }
+programa:       
+                declaraciones_globales lista_funciones funcion_main 
+                { 
+                    printf ("%s\n\n%s\n\n%s\n\n(main)\n", $1.code, $2.code, $3.code) ;
+                }
             ;
 
 /* jerarquía de declaraciones globales*/
@@ -125,9 +131,37 @@ resto_variable:
 
 /* jerarquía de la fnción main*/
 funcion_main:   
-                MAIN '(' ')' '{' marcador_local declaraciones_locales lista_sentencias '}'   {sprintf (temp, "(defun main ()\n%s%s)", $6.code, $7.code) ;
-                                                                                                $$.code = gen_code (temp) ; 
-                                                                                                is_local_scope = 0;} // Apagamos el flag al salir         
+                MAIN '(' ')' '{' 
+                { strcpy(current_func_name, "main"); clear_local_vars(); } 
+                marcador_local declaraciones_locales lista_sentencias '}'   
+                {
+                    sprintf (temp, "(defun main ()\n%s%s)", $7.code, $8.code) ;
+                    $$.code = gen_code (temp) ; 
+                    is_local_scope = 0; 
+                }         
+            ;
+
+lista_funciones:
+                funcion lista_funciones  { sprintf (temp, "%s\n\n%s", $1.code, $2.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   /* vacio */              { $$.code = gen_code ("") ; }
+            ;
+
+nombre_funcion:
+                IDENTIF {
+                    strcpy(current_func_name, $1.code); // Actualiza el prefijo
+                    clear_local_vars();                 // Limpia variables de otras funciones
+                    $$ = $1;
+                }
+            ;
+
+funcion:
+                nombre_funcion '(' ')' '{' marcador_local declaraciones_locales lista_sentencias '}'
+                {
+                    sprintf (temp, "(defun %s ()\n%s%s)", $1.code, $6.code, $7.code) ;
+                    $$.code = gen_code (temp) ;
+                    is_local_scope = 0;
+                }
             ;
 
 marcador_local:
@@ -187,15 +221,34 @@ resto_if:
 
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
-            IDENTIF '=' expresion    
-                { 
-                    sprintf (temp, "(setf %s %s)", resolve_var($1.code), $3.code) ;
-                    $$.code = gen_code (temp) ; 
-                }
+                IDENTIF resto_sentencia_identif     
+                    {if ($2.value == 1) { 
+                        // Camino 1: Era una asignación
+                        sprintf (temp, "(setf %s %s)", resolve_var($1.code), $2.code) ;
+                    } else {             
+                        // Camino 2: Era una llamada a función
+                        sprintf (temp, "(%s)", $1.code) ;
+                    }
+                    $$.code = gen_code (temp) ; }
             |   PUTS '(' STRING ')'                             { sprintf (temp, "(print \"%s\")", $3.code) ;
                                                                     $$.code = gen_code (temp) ; }
             |   PRINTF '(' STRING ',' lista_impresion ')'       { $$ = $5 ; } // Ignoramos el string de formato ($3)
             ;
+
+
+resto_sentencia_identif:
+                '=' expresion            
+                { 
+                    $$.value = 1 ;            // Marcador de asignación
+                    $$.code = $2.code ;       // Pasamos el código de la expresión matemática
+                }
+            |   '(' ')'                  
+                { 
+                    $$.value = 2 ;            // Marcador de llamada a función
+                    $$.code = gen_code ("") ; // No hay código extra
+                }
+            ;
+
 
 inc_dec:
                 INC '(' IDENTIF ')' {
@@ -326,6 +379,7 @@ char *my_malloc (int nbytes)       // reserva n bytes de memoria dinamica
 int is_local_scope = 0;
 char local_sym_table[100][256];
 int local_sym_count = 0;
+char current_func_name[256] = "main"; // Guarda la función actual
 
 void add_local_var(char *name) {
     strcpy(local_sym_table[local_sym_count++], name);
@@ -339,12 +393,17 @@ int is_local_var(char *name) {
 }
 
 char* resolve_var(char *name) {
-    static char resolved[256];
+    static char resolved[512]; //con 256 nos ha dado warning de buffer overflow
     if (is_local_var(name)) {
-        sprintf(resolved, "main_%s", name);
+        // Ahora prefija con el nombre de la función actual, no siempre "main"
+        sprintf(resolved, "%s_%s", current_func_name, name);
         return resolved;
     }
     return name; // Si no está en la tabla local, es global
+}
+
+void clear_local_vars() {
+    local_sym_count = 0; // Resetea la tabla al entrar a una nueva función
 }
 
 /***************************************************************************/
