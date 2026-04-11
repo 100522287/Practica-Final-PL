@@ -91,9 +91,14 @@ lista_variables:
             ;
 
 variable:       
-                IDENTIF                  { sprintf (temp, "(setq %s 0)", $1.code) ;
+                IDENTIF resto_variable   { sprintf (temp, "(setq %s %s)", $1.code, $2.code) ;
                                            $$.code = gen_code (temp) ; }
-            |   IDENTIF '=' NUMBER       { sprintf (temp, "(setq %s %d)", $1.code, $3.value) ;
+            ;
+
+resto_variable: 
+                /* vacio */              { $$.code = gen_code ("0") ; }
+            |   
+                '=' NUMBER               { sprintf (temp, "%d", $2.value) ;
                                            $$.code = gen_code (temp) ; }
             ;
 
