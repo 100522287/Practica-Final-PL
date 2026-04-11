@@ -63,6 +63,10 @@ typedef struct s_attr {
 %token FOR
 %token INC
 %token DEC
+%token SWITCH
+%token CASE
+%token DEFAULT
+%token BREAK
 
 
 %right '='                    // asignación
@@ -149,7 +153,29 @@ lista_sentencias:
             |   IF '(' expresion ')' '{' lista_sentencias '}' resto_if
                                          { sprintf (temp, "\t(if %s\n\t\t(progn %s)%s", $3.code, $6.code, $8.code) ;
                                            $$.code = gen_code (temp) ; }
+            |   SWITCH '(' IDENTIF ')' '{' lista_cases '}' lista_sentencias
+                                         { sprintf (temp, "\t(case %s\n%s\t)\n%s", resolve_var($3.code), $6.code, $8.code) ;
+                                           $$.code = gen_code (temp) ; }
             |   /* vacio */              { $$.code = gen_code ("") ; }
+            ;
+
+lista_cases:
+                case lista_cases         { sprintf (temp, "%s\n%s", $1.code, $2.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   default_case             { $$ = $1 ; }
+            |   /* vacio */              { $$.code = gen_code ("") ; }
+            ;
+
+case:
+                CASE NUMBER ':' lista_sentencias BREAK ';'
+                                         { sprintf (temp, "\t\t(%d\n%s\t\t)", $2.value, $4.code) ;
+                                           $$.code = gen_code (temp) ; }
+            ;
+
+default_case:
+                DEFAULT ':' lista_sentencias BREAK ';'
+                                         { sprintf (temp, "\t\t(otherwise\n%s\t\t)", $3.code) ;
+                                           $$.code = gen_code (temp) ; }
             ;
 
 resto_if:
@@ -347,6 +373,10 @@ t_keyword keywords [] = { // define las palabras reservadas y los
     "for",         FOR,
     "inc",         INC,
     "dec",         DEC,
+    "switch",      SWITCH,
+    "case",        CASE,
+    "default",     DEFAULT,
+    "break",       BREAK,
     NULL,          0               // para marcar el fin de la tabla
 } ;
 
