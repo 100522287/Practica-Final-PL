@@ -60,6 +60,9 @@ typedef struct s_attr {
 %token AND OR EQ NEQ LEQ GEQ
 %token IF
 %token ELSE
+%token FOR
+%token INC
+%token DEC
 
 
 %right '='                    // asignación
@@ -134,13 +137,19 @@ declaraciones_locales:
                         ;
 
 lista_sentencias:       
-                sentencia ';' lista_sentencias                                          { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
-                                                                                            $$.code = gen_code (temp) ; }
-            |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias       { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
-                                                                                            $$.code = gen_code (temp) ; }
-            |   IF '(' expresion ')' '{' lista_sentencias '}' resto_if                  { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)%s", $3.code, $6.code, $8.code) ;
-                                                                                            $$.code = gen_code (temp) ; }
-            |   /* vacio */                                                             { $$.code = gen_code ("") ; }
+                sentencia ';' lista_sentencias         
+                                         { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias
+                                         { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   FOR '(' sentencia ';' expresion ';' inc_dec ')' '{' lista_sentencias '}' lista_sentencias
+                                         { sprintf (temp, "\t%s\n\t(loop while %s do\n%s\t\t%s\n\t)\n%s", $3.code, $5.code, $10.code, $7.code, $12.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   IF '(' expresion ')' '{' lista_sentencias '}' resto_if
+                                         { sprintf (temp, "\t(if %s\n\t\t(progn %s)%s", $3.code, $6.code, $8.code) ;
+                                           $$.code = gen_code (temp) ; }
+            |   /* vacio */              { $$.code = gen_code ("") ; }
             ;
 
 resto_if:
@@ -160,6 +169,17 @@ sentencia:
             |   PUTS '(' STRING ')'                             { sprintf (temp, "(print \"%s\")", $3.code) ;
                                                                     $$.code = gen_code (temp) ; }
             |   PRINTF '(' STRING ',' lista_impresion ')'       { $$ = $5 ; } // Ignoramos el string de formato ($3)
+            ;
+
+inc_dec:
+                INC '(' IDENTIF ')' {
+                    sprintf (temp, "(setf %s (+ %s 1))", resolve_var($3.code), resolve_var($3.code)) ;
+                    $$.code = gen_code (temp) ;
+                }
+            |   DEC '(' IDENTIF ')' {
+                    sprintf (temp, "(setf %s (- %s 1))", resolve_var($3.code), resolve_var($3.code)) ;
+                    $$.code = gen_code (temp) ;
+                }
             ;
 
 lista_impresion:
@@ -324,6 +344,9 @@ t_keyword keywords [] = { // define las palabras reservadas y los
     ">=",          GEQ,
     "if",          IF,
     "else",        ELSE,
+    "for",         FOR,
+    "inc",         INC,
+    "dec",         DEC,
     NULL,          0               // para marcar el fin de la tabla
 } ;
 
