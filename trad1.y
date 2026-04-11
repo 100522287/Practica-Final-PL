@@ -16,6 +16,10 @@ char *mi_malloc (int) ;
 char *gen_code (char *) ;
 char *int_to_string (int) ;
 char *char_to_string (char) ;
+extern int is_local_scope;
+void add_local_var(char *name);
+int is_local_var(char *name);
+char* resolve_var(char *name);
 
 char temp [2048] ;
 
@@ -54,6 +58,8 @@ typedef struct s_attr {
 %token PUTS          // identifica la función de imprimir strings
 %token PRINTF        // identifica 
 %token AND OR EQ NEQ LEQ GEQ
+%token IF
+%token ELSE
 
 
 %right '='                    // asignación
@@ -84,43 +90,73 @@ declaracion_global:
                         ;
 
 lista_variables:            
-                variable                        { $$ = $1 ; }
-            |
-                variable ',' lista_variables    { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
-                                                  $$.code = gen_code (temp) ; }
-            ;
+                    variable                         { $$ = $1 ; }
+                
+                |    variable ',' lista_variables    { sprintf (temp, "%s\n%s", $1.code, $3.code) ;
+                                                        $$.code = gen_code (temp) ; }
+                ;
 
 variable:       
-                IDENTIF resto_variable   { sprintf (temp, "(setq %s %s)", $1.code, $2.code) ;
-                                           $$.code = gen_code (temp) ; }
+                IDENTIF resto_variable   {char *resolved_name;
+                                            if (is_local_scope) {
+                                                add_local_var($1.code);
+                                                resolved_name = resolve_var($1.code);
+                                            } else {
+                                                resolved_name = $1.code;
+                                            }
+                                            sprintf (temp, "(setq %s %s)", resolved_name, $2.code) ;
+                                            $$.code = gen_code (temp) ; 
+                                        }
             ;
 
 resto_variable: 
-                /* vacio */              { $$.code = gen_code ("0") ; }
-            |   
-                '=' NUMBER               { sprintf (temp, "%d", $2.value) ;
-                                           $$.code = gen_code (temp) ; }
-            ;
+                    /* vacio */              { $$.code = gen_code ("0") ; }
+                |   
+                    '=' NUMBER               { sprintf (temp, "%d", $2.value) ;
+                                            $$.code = gen_code (temp) ; }
+                ;
 
 /* jerarquía de la fnción main*/
 funcion_main:   
-                MAIN '(' ')' '{' lista_sentencias '}'   { sprintf (temp, "(defun main ()\n%s\n)", $5.code) ;
-                                                        $$.code = gen_code (temp) ; }         
-                                         
+                MAIN '(' ')' '{' marcador_local declaraciones_locales lista_sentencias '}'   {sprintf (temp, "(defun main ()\n%s%s)", $6.code, $7.code) ;
+                                                                                                $$.code = gen_code (temp) ; 
+                                                                                                is_local_scope = 0;} // Apagamos el flag al salir         
             ;
+
+marcador_local:
+                /* vacio */ { is_local_scope = 1; }
+            ;
+
+declaraciones_locales: 
+                            INTEGER lista_variables ';' declaraciones_locales       { sprintf (temp, "\t%s\n%s", $2.code, $4.code) ;
+                                                                                        $$.code = gen_code (temp) ; }
+                        |   /* vacio */                                             { $$.code = gen_code ("") ; }
+                        ;
 
 lista_sentencias:       
                 sentencia ';' lista_sentencias                                          { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
                                                                                             $$.code = gen_code (temp) ; }
             |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias       { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
                                                                                             $$.code = gen_code (temp) ; }
+            |   IF '(' expresion ')' '{' lista_sentencias '}' resto_if                  { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)%s", $3.code, $6.code, $8.code) ;
+                                                                                            $$.code = gen_code (temp) ; }
             |   /* vacio */                                                             { $$.code = gen_code ("") ; }
+            ;
+
+resto_if:
+                lista_sentencias                                { sprintf (temp, "\n\t)\n%s", $1.code) ;
+                                                                    $$.code = gen_code (temp) ; }
+            |   ELSE '{' lista_sentencias '}' lista_sentencias  { sprintf (temp, "\n\t\t(progn\n%s\t\t)\n\t)\n%s", $3.code, $5.code) ;
+                                                                    $$.code = gen_code (temp) ; }
             ;
 
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
-                IDENTIF '=' expresion                           { sprintf (temp, "(setq %s %s)", $1.code, $3.code) ;
-                                                                    $$.code = gen_code (temp) ; }
+            IDENTIF '=' expresion    
+                { 
+                    sprintf (temp, "(setf %s %s)", resolve_var($1.code), $3.code) ;
+                    $$.code = gen_code (temp) ; 
+                }
             |   PUTS '(' STRING ')'                             { sprintf (temp, "(print \"%s\")", $3.code) ;
                                                                     $$.code = gen_code (temp) ; }
             |   PRINTF '(' STRING ',' lista_impresion ')'       { $$ = $5 ; } // Ignoramos el string de formato ($3)
@@ -180,8 +216,11 @@ termino:
             ;
 
 operando:       
-                IDENTIF                  { sprintf (temp, "%s", $1.code) ;
-                                           $$.code = gen_code (temp) ; }
+            IDENTIF                  
+                { 
+                    sprintf (temp, "%s", resolve_var($1.code)) ;
+                    $$.code = gen_code (temp) ; 
+                }
             |   NUMBER                   { sprintf (temp, "%d", $1.value) ;
                                            $$.code = gen_code (temp) ; }
             |   '(' expresion ')'        { $$ = $2 ; }
@@ -234,6 +273,33 @@ char *my_malloc (int nbytes)       // reserva n bytes de memoria dinamica
     return p ;
 }
 
+/***************************************************************************/
+/********************** Tabla de Símbolos Locales **************************/
+/***************************************************************************/
+
+int is_local_scope = 0;
+char local_sym_table[100][256];
+int local_sym_count = 0;
+
+void add_local_var(char *name) {
+    strcpy(local_sym_table[local_sym_count++], name);
+}
+
+int is_local_var(char *name) {
+    for(int i = 0; i < local_sym_count; i++) {
+        if(strcmp(local_sym_table[i], name) == 0) return 1;
+    }
+    return 0;
+}
+
+char* resolve_var(char *name) {
+    static char resolved[256];
+    if (is_local_var(name)) {
+        sprintf(resolved, "main_%s", name);
+        return resolved;
+    }
+    return name; // Si no está en la tabla local, es global
+}
 
 /***************************************************************************/
 /********************** Seccion de Palabras Reservadas *********************/
@@ -256,6 +322,8 @@ t_keyword keywords [] = { // define las palabras reservadas y los
     "!=",          NEQ,
     "<=",          LEQ,
     ">=",          GEQ,
+    "if",          IF,
+    "else",        ELSE,
     NULL,          0               // para marcar el fin de la tabla
 } ;
 
