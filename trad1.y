@@ -156,9 +156,9 @@ nombre_funcion:
             ;
 
 funcion:
-                nombre_funcion '(' ')' '{' marcador_local declaraciones_locales lista_sentencias '}'
+                nombre_funcion '(' marcador_local lista_parametros ')' '{' declaraciones_locales lista_sentencias '}'
                 {
-                    sprintf (temp, "(defun %s ()\n%s%s)", $1.code, $6.code, $7.code) ;
+                    sprintf (temp, "(defun %s (%s)\n%s%s)", $1.code, $4.code, $7.code, $8.code) ;
                     $$.code = gen_code (temp) ;
                     is_local_scope = 0;
                 }
@@ -219,6 +219,39 @@ resto_if:
                                                                     $$.code = gen_code (temp) ; }
             ;
 
+
+lista_parametros:
+                parametro resto_parametros { sprintf(temp, "%s%s", $1.code, $2.code); 
+                                             $$.code = gen_code(temp); }
+            |   /* vacio */                { $$.code = gen_code(""); }
+            ;
+
+parametro:
+                INTEGER IDENTIF {
+                    add_local_var($2.code); // ¡Lo registramos como variable local!
+                    $$.code = gen_code(resolve_var($2.code)); // Genera el nombre con prefijo
+                }
+            ;
+
+resto_parametros:
+                ',' parametro resto_parametros { sprintf(temp, " %s%s", $2.code, $3.code); 
+                                                 $$.code = gen_code(temp); }
+            |   /* vacio */                    { $$.code = gen_code(""); }
+            ;
+
+lista_argumentos:
+                expresion resto_argumentos { sprintf(temp, "%s%s", $1.code, $2.code); 
+                                             $$.code = gen_code(temp); }
+            |   /* vacio */                { $$.code = gen_code(""); }
+            ;
+
+resto_argumentos:
+                ',' expresion resto_argumentos { sprintf(temp, " %s%s", $2.code, $3.code); 
+                                                 $$.code = gen_code(temp); }
+            |   /* vacio */                    { $$.code = gen_code(""); }
+            ;
+
+
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
                 IDENTIF resto_sentencia_identif     
@@ -227,9 +260,10 @@ sentencia:
                         sprintf (temp, "(setf %s %s)", resolve_var($1.code), $2.code) ;
                     } else {             
                         // Camino 2: Era una llamada a función
-                        sprintf (temp, "(%s)", $1.code) ;
+                        sprintf (temp, "(%s%s)", $1.code, $2.code) ; // <--- ¡AQUÍ ESTÁ EL ARREGLO!
                     }
-                    $$.code = gen_code (temp) ; }
+                    $$.code = gen_code (temp) ;
+                }
             |   PUTS '(' STRING ')'                             { sprintf (temp, "(print \"%s\")", $3.code) ;
                                                                     $$.code = gen_code (temp) ; }
             |   PRINTF '(' STRING ',' lista_impresion ')'       { $$ = $5 ; } // Ignoramos el string de formato ($3)
@@ -239,13 +273,19 @@ sentencia:
 resto_sentencia_identif:
                 '=' expresion            
                 { 
-                    $$.value = 1 ;            // Marcador de asignación
-                    $$.code = $2.code ;       // Pasamos el código de la expresión matemática
+                    $$.value = 1 ;            
+                    $$.code = $2.code ;       
                 }
-            |   '(' ')'                  
+            |   '(' lista_argumentos ')'                  
                 { 
-                    $$.value = 2 ;            // Marcador de llamada a función
-                    $$.code = gen_code ("") ; // No hay código extra
+                    $$.value = 2 ;            
+                    // Si hay argumentos, ponemos un espacio antes. Si no, lo dejamos vacío.
+                    if (strlen($2.code) > 0) {
+                        sprintf(temp, " %s", $2.code);
+                        $$.code = gen_code(temp);
+                    } else {
+                        $$.code = gen_code("");
+                    }
                 }
             ;
 
@@ -315,14 +355,33 @@ termino:
             ;
 
 operando:       
-            IDENTIF                  
+                IDENTIF resto_operando_identif 
                 { 
-                    sprintf (temp, "%s", resolve_var($1.code)) ;
-                    $$.code = gen_code (temp) ; 
+                    if ($2.value == 1) { 
+                        // Era solo una variable
+                        sprintf(temp, "%s", resolve_var($1.code));
+                    } else { 
+                        // Era una llamada a función
+                        sprintf(temp, "(%s%s)", $1.code, $2.code);
+                    }
+                    $$.code = gen_code(temp);
                 }
             |   NUMBER                   { sprintf (temp, "%d", $1.value) ;
                                            $$.code = gen_code (temp) ; }
             |   '(' expresion ')'        { $$ = $2 ; }
+            ;
+
+resto_operando_identif:
+                /* vacio */              { $$.value = 1; $$.code = gen_code(""); }
+            |   '(' lista_argumentos ')' { 
+                    $$.value = 2; 
+                    if (strlen($2.code) > 0) {
+                        sprintf(temp, " %s", $2.code);
+                        $$.code = gen_code(temp);
+                    } else {
+                        $$.code = gen_code("");
+                    }
+                }
             ;
 
 %%                            // SECCION 4    Codigo en C
