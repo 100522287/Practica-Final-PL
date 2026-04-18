@@ -160,19 +160,20 @@ variable:
 /* jerarquía de la función main*/
 funcion_main:   
         MAIN '(' ')' '{' { strcpy(current_func_name, "main"); clear_local_vars(); } marcador_local declaraciones_locales lista_sentencias_f '}'   
-            { sprintf (temp, "(defun main ()\n%s%s)", $7.code, $8.code) ;
-              $$.code = gen_code (temp) ; 
-              is_local_scope = 0; }         
-    ;
+                                    {sprintf (temp, "(defun main ()\n%s%s)", $7.code, $8.code) ;
+                                        $$.code = gen_code (temp) ; 
+                                        is_local_scope = 0; }         
+            ;
 
 funcion:        
         nombre_funcion '(' marcador_local lista_parametros ')' '{' declaraciones_locales lista_sentencias_f '}'
-            { sprintf (temp, "(defun %s (%s)\n%s%s)", $1.code, $4.code, $7.code, $8.code) ;
-              $$.code = gen_code (temp) ;
-              is_local_scope = 0; }
-    ;
+                {sprintf (temp, "(defun %s (%s)\n%s%s)", $1.code, $4.code, $7.code, $8.code) ;
+                $$.code = gen_code (temp) ;
+                is_local_scope = 0;
+                }
+            ;
 
-lista_funcioneons: // LF -> F LF | vacio
+lista_funciones: // LF -> F LF | vacio
                 funcion lista_funciones  { sprintf (temp, "%s\n\n%s", $1.code, $2.code) ;
                                            $$.code = gen_code (temp) ; }
             |   /* vacio */              { $$.code = gen_code ("") ; }
@@ -193,34 +194,6 @@ declaraciones_locales: // DL -> D DL | vacio
                                                                                         $$.code = gen_code (temp) ; }
                         |   /* vacio */                                             { $$.code = gen_code ("") ; }
                         ;
-
-lista_sentencias:      
-        sentencia ';' lista_sentencias         
-                                 { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   RETURN expresion ';' lista_sentencias
-                                 { 
-                                   // En bloques internos, siempre es retorno temprano
-                                   sprintf (temp, "\t(return-from %s %s)\n%s", current_func_name, $2.code, $4.code) ;
-                                   $$.code = gen_code (temp) ; 
-                                 }
-    |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias
-                                 { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   FOR '(' sentencia ';' expresion ';' inc_dec ')' '{' lista_sentencias '}' lista_sentencias
-                                 { sprintf (temp, "\t%s\n\t(loop while %s do\n%s\t\t%s\n\t)\n%s", $3.code, $5.code, $10.code, $7.code, $12.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   IF '(' expresion ')' '{' lista_sentencias '}' lista_sentencias
-                                 { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)\n\t)\n%s", $3.code, $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   IF '(' expresion ')' '{' lista_sentencias '}' ELSE '{' lista_sentencias '}' lista_sentencias
-                                 { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)\n\t\t(progn\n%s\t\t)\n\t)\n%s", $3.code, $6.code, $10.code, $12.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   SWITCH '(' IDENTIF ')' '{' lista_cases '}' lista_sentencias
-                                 { sprintf (temp, "\t(case %s\n%s\t)\n%s", resolve_var($3.code), $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   /* vacio */              { $$.code = gen_code ("") ; }
-    ;
 
 lista_cases:  // LC -> CI LC | DC | vacio
                 case_item lista_cases    { sprintf (temp, "%s\n%s", $1.code, $2.code) ;
@@ -287,57 +260,128 @@ lista_argumentos_no_vacia:
         }
     ;
 
-lista_sentencias_f:      
-        sentencia ';' lista_sentencias_f         
-                                 { sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   RETURN expresion ';' lista_sentencias_f
-                                 { 
-                                     if (strlen($4.code) == 0) {
-                                         // Es la última sentencia (Retorno estructurado)
-                                         sprintf (temp, "\t%s\n", $2.code) ;
-                                     } else {
-                                         // Hay sentencias muertas después (Retorno temprano)
-                                         sprintf (temp, "\t(return-from %s %s)\n%s", current_func_name, $2.code, $4.code) ;
-                                     }
-                                     $$.code = gen_code (temp) ; 
-                                 }
-    |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias_f
-                                 { sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   FOR '(' sentencia ';' expresion ';' inc_dec ')' '{' lista_sentencias '}' lista_sentencias_f
-                                 { sprintf (temp, "\t%s\n\t(loop while %s do\n%s\t\t%s\n\t)\n%s", $3.code, $5.code, $10.code, $7.code, $12.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   IF '(' expresion ')' '{' lista_sentencias '}' lista_sentencias_f
-                                 { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)\n\t)\n%s", $3.code, $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   IF '(' expresion ')' '{' lista_sentencias '}' ELSE '{' lista_sentencias '}' lista_sentencias_f
-                                 { sprintf (temp, "\t(if %s\n\t\t(progn\n%s\t\t)\n\t\t(progn\n%s\t\t)\n\t)\n%s", $3.code, $6.code, $10.code, $12.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   SWITCH '(' IDENTIF ')' '{' lista_cases '}' lista_sentencias_f
-                                 { sprintf (temp, "\t(case %s\n%s\t)\n%s", resolve_var($3.code), $6.code, $8.code) ;
-                                   $$.code = gen_code (temp) ; }
-    |   /* vacio */              { $$.code = gen_code ("") ; }
+
+instruccion:
+        sentencia ';'
+        {
+            sprintf (temp, "\t%s", $1.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   RETURN expresion ';'
+        {
+            sprintf (temp, "\t(return-from %s %s)", current_func_name, $2.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   WHILE '(' expresion ')' '{' lista_sentencias '}'
+        {
+            sprintf (temp, "\t(loop while %s do\n%s\t)", $3.code, $6.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   FOR '(' sentencia ';' expresion ';' inc_dec ')' '{' lista_sentencias '}'
+        {
+            sprintf (temp, "\t%s\n\t(loop while %s do\n%s\t\t%s\n\t)", $3.code, $5.code, $10.code, $7.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   IF '(' expresion ')' '{' contenido_if '}'
+        {
+            sprintf (temp, "\t(if %s\n%s\n\t)", $3.code, $6.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}'
+        {
+            sprintf (temp, "\t(if %s\n%s\n%s\n\t)", $3.code, $6.code, $10.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   SWITCH '(' IDENTIF ')' '{' lista_cases '}'
+        {
+            sprintf (temp, "\t(case %s\n%s\t)", resolve_var($3.code), $6.code) ;
+            $$.code = gen_code (temp) ;
+        }
     ;
+
+contenido_if:
+        /* vacio */
+        { $$.code = gen_code ("") ; }
+    |   instruccion
+        {
+            sprintf (temp, "\t\t%s\n", $1.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    |   instruccion instruccion lista_sentencias
+        {
+            sprintf (temp, "\t\t(progn\n%s\n%s\n%s\t\t)\n", $1.code, $2.code, $3.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    ;
+
+lista_sentencias:
+        /* vacio */
+        { $$.code = gen_code ("") ; }
+    |   instruccion lista_sentencias
+        {
+            sprintf (temp, "%s\n%s", $1.code, $2.code) ;
+            $$.code = gen_code (temp) ;
+        }
+    ;
+
+lista_sentencias_f:      
+        /* vacio */
+        { $$.code = gen_code ("") ; }
+    |   sentencia ';' lista_sentencias_f         
+        { 
+            sprintf (temp, "\t%s\n%s", $1.code, $3.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    |   RETURN expresion ';' lista_sentencias_f
+        { 
+            if (strlen($4.code) == 0) {
+                sprintf (temp, "\t%s\n", $2.code) ;
+            } else {
+                sprintf (temp, "\t(return-from %s %s)\n%s", current_func_name, $2.code, $4.code) ;
+            }
+            $$.code = gen_code (temp) ; 
+        }
+    |   WHILE '(' expresion ')' '{' lista_sentencias '}' lista_sentencias_f
+        { 
+            sprintf (temp, "\t(loop while %s do\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    |   FOR '(' sentencia ';' expresion ';' inc_dec ')' '{' lista_sentencias '}' lista_sentencias_f
+        { 
+            sprintf (temp, "\t%s\n\t(loop while %s do\n%s\t\t%s\n\t)\n%s", $3.code, $5.code, $10.code, $7.code, $12.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    |   IF '(' expresion ')' '{' contenido_if '}' lista_sentencias_f
+        { 
+            sprintf (temp, "\t(if %s\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}' lista_sentencias_f
+        { 
+            sprintf (temp, "\t(if %s\n%s\t\t%s\t)\n%s", $3.code, $6.code, $10.code, $12.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    |   SWITCH '(' IDENTIF ')' '{' lista_cases '}' lista_sentencias_f
+        { 
+            sprintf (temp, "\t(case %s\n%s\t)\n%s", resolve_var($3.code), $6.code, $8.code) ;
+            $$.code = gen_code (temp) ; 
+        }
+    ;
+
 
 // sentencias (solo válidas dentro de funciones)
 // sentencias (solo válidas dentro de funciones)
 sentencia:      
-        /* 1. Asignación a variable simple */
         IDENTIF '=' expresion
         { 
             sprintf (temp, "(setf %s %s)", resolve_var($1.code), $3.code) ;
             $$.code = gen_code (temp) ;
         }
-        
-        /* 2. Asignación a elemento de vector */
     |   IDENTIF '[' expresion ']' '=' expresion
         {
             sprintf (temp, "(setf (aref %s %s) %s)", resolve_var($1.code), $3.code, $6.code) ;
             $$.code = gen_code (temp) ;
         }
-        
-        /* 3. Llamada a función / procedimiento */
     |   IDENTIF '(' lista_argumentos ')'
         {
             if (strlen($3.code) > 0) {
@@ -347,19 +391,19 @@ sentencia:
             }
             $$.code = gen_code(temp);
         }
-        
     |   PUTS '(' STRING ')'                             
         { 
             sprintf (temp, "(print \"%s\")", $3.code) ;
             $$.code = gen_code (temp) ; 
         }
     |   PRINTF '(' STRING ',' lista_impresion ')'       
-        { 
-            $$ = $5 ;
-        }
-        /* ELIMINADO RETURN DE AQUÍ */
+            { 
+                /* Envolvemos los múltiples princ del printf en un único progn 
+                para que Lisp lo trate como una sola expresión siempre */
+                sprintf (temp, "(progn\n\t\t%s\n\t)", $5.code) ;
+                $$.code = gen_code (temp) ;
+            }
     ;
-
 
 inc_dec:        // ID -> INC '(' IDENTIF ')' | DEC '(' IDENTIF ')'
                 INC '(' IDENTIF ')' {sprintf (temp, "(setf %s (+ %s 1))", resolve_var($3.code), resolve_var($3.code)) ;
