@@ -288,7 +288,7 @@ lista_sentencias_f:
                                                                                                                                 $$.code = gen_code (temp) ;}
                     |   IF '(' expresion ')' '{' contenido_if '}' lista_sentencias_f                { sprintf (temp, "\t(if %s\n%s\t)\n%s", $3.code, $6.code, $8.code) ;
                                                                                                         $$.code = gen_code (temp) ; }
-                    |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}' lista_sentencias_f              { sprintf (temp, "\t(if %s\n%s\t\t%s\t)\n%s", $3.code, $6.code, $10.code, $12.code) ;
+                    |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}' lista_sentencias_f              { sprintf (temp, "\t(if %s\n%s\t%s\n\t)\n%s", $3.code, $6.code, $10.code, $12.code) ;
                                                                                                                                 $$.code = gen_code (temp) ; }
                 |   SWITCH '(' IDENTIF ')' '{' lista_cases '}' lista_sentencias_f                   { sprintf (temp, "\t(case %s\n%s\t)\n%s", resolve_var($3.code), $6.code, $8.code) ;
                                                                                                         $$.code = gen_code (temp) ; }
@@ -321,7 +321,7 @@ instruccion:
                                                                                                         $$.code = gen_code (temp) ; }
             |   IF '(' expresion ')' '{' contenido_if '}'                                           {sprintf (temp, "\t(if %s\n%s\n\t)", $3.code, $6.code) ;
                                                                                                         $$.code = gen_code (temp) ;}
-            |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}'                 {sprintf (temp, "\t(if %s\n%s\n%s\n\t)", $3.code, $6.code, $10.code) ;
+            |   IF '(' expresion ')' '{' contenido_if '}' ELSE '{' contenido_if '}'                 {sprintf (temp, "\t(if %s\n%s\t%s\n\t)", $3.code, $6.code, $10.code) ;
                                                                                                         $$.code = gen_code (temp) ; }
             |   SWITCH '(' IDENTIF ')' '{' lista_cases '}'                                          {sprintf (temp, "\t(case %s\n%s\t)", resolve_var($3.code), $6.code) ;
                                                                                                         $$.code = gen_code (temp) ; }
@@ -330,9 +330,9 @@ instruccion:
 
 contenido_if:
                 /* vacio */                                         { $$.code = gen_code ("") ; }
-            |   instruccion                                         {sprintf (temp, "\t\t%s\n", $1.code) ;
+            |   instruccion                                         {sprintf (temp, "%s\n", $1.code) ;
                                                                         $$.code = gen_code (temp) ; }
-            |   instruccion instruccion lista_sentencias            {sprintf (temp, "\t\t(progn\n%s\n%s\n%s\t\t)\n", $1.code, $2.code, $3.code) ;
+            |   instruccion instruccion lista_sentencias            {sprintf (temp, "\t\t(progn\n\t\t%s\n\t\t%s\n%s\t\t)\n", $1.code, $2.code, $3.code) ;
                                                                         $$.code = gen_code (temp) ;}
             ;
 
@@ -356,7 +356,7 @@ sentencia:
                                                                 $$.code = gen_code(temp);   }
     |   PUTS '(' STRING ')'                                 { sprintf (temp, "(print \"%s\")", $3.code) ;
                                                                 $$.code = gen_code (temp) ; }
-    |   PRINTF '(' STRING ',' lista_impresion ')'           { sprintf (temp, "(progn\n\t\t%s\n\t)", $5.code) ;
+    |   PRINTF '(' STRING ',' lista_impresion ')'           { sprintf (temp, "(progn %s)", $5.code) ;
                                                                 $$.code = gen_code (temp) ; }
     ;
 
